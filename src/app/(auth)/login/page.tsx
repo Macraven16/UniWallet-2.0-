@@ -8,12 +8,22 @@ import { User } from "@/lib/types";
 export default function LoginPage() {
     const { login, isLoading } = useAuth();
     const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const [role, setRole] = useState<User["role"]>("STUDENT");
+    const [error, setError] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!email) return;
-        await login(email, role);
+        setError("");
+        if (!email || !password) {
+            setError("Please enter both email and password");
+            return;
+        }
+
+        const success = await login(email, role, undefined, password);
+        if (!success) {
+            setError("Invalid credentials. Please check your email and password.");
+        }
     };
 
     return (
@@ -27,6 +37,11 @@ export default function LoginPage() {
                 </div>
 
                 <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+                    {error && (
+                        <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
+                            {error}
+                        </div>
+                    )}
                     <div className="space-y-4">
                         <div>
                             <label htmlFor="role" className="block text-sm font-medium text-foreground">
@@ -37,8 +52,8 @@ export default function LoginPage() {
                                     type="button"
                                     onClick={() => setRole("STUDENT")}
                                     className={`flex items-center justify-center rounded-lg border p-3 text-sm font-medium transition-colors ${role === "STUDENT"
-                                            ? "border-primary bg-primary/10 text-primary"
-                                            : "border-input bg-background text-muted-foreground hover:bg-accent"
+                                        ? "border-primary bg-primary/10 text-primary"
+                                        : "border-input bg-background text-muted-foreground hover:bg-accent"
                                         }`}
                                 >
                                     Student / Parent
@@ -47,8 +62,8 @@ export default function LoginPage() {
                                     type="button"
                                     onClick={() => setRole("ADMIN")}
                                     className={`flex items-center justify-center rounded-lg border p-3 text-sm font-medium transition-colors ${role === "ADMIN"
-                                            ? "border-primary bg-primary/10 text-primary"
-                                            : "border-input bg-background text-muted-foreground hover:bg-accent"
+                                        ? "border-primary bg-primary/10 text-primary"
+                                        : "border-input bg-background text-muted-foreground hover:bg-accent"
                                         }`}
                                 >
                                     School Admin
@@ -70,6 +85,23 @@ export default function LoginPage() {
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="mt-1 block w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
                                 placeholder="you@example.com"
+                            />
+                        </div>
+
+                        <div>
+                            <label htmlFor="password" className="block text-sm font-medium text-foreground">
+                                Password
+                            </label>
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="mt-1 block w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
+                                placeholder="••••••••"
                             />
                         </div>
                     </div>

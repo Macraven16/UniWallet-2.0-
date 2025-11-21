@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 interface AuthContextType {
     user: User | null;
-    login: (email: string, role: User["role"], name?: string) => Promise<void>;
+    login: (email: string, role: User["role"], name?: string, password?: string) => Promise<boolean>;
     logout: () => void;
     isLoading: boolean;
 }
@@ -28,10 +28,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
     }, []);
 
-    const login = async (email: string, role: User["role"], name?: string) => {
+    const login = async (email: string, role: User["role"], name?: string, password?: string) => {
         setIsLoading(true);
         // Simulate API call
         await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Admin Restriction Logic
+        if (role === "ADMIN") {
+            const ALLOWED_ADMIN_EMAIL = "admin@gctu.edu.gh";
+            const ALLOWED_ADMIN_PASSWORD = "password"; // In a real app, this would be hashed and in DB
+
+            if (email !== ALLOWED_ADMIN_EMAIL || password !== ALLOWED_ADMIN_PASSWORD) {
+                setIsLoading(false);
+                return false;
+            }
+        }
 
         // Find mock user or create a temporary one
         const foundUser = MOCK_USERS.find((u) => u.email === email && u.role === role);
@@ -53,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
             router.push("/student");
         }
+        return true;
     };
 
     const logout = () => {

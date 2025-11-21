@@ -44,7 +44,7 @@ export default function SignupPage() {
         console.log("Signup Data:", { email, name, role, university, indexNumber, phone });
 
         // For prototype, signup just logs you in as a new user
-        await login(email, role, name);
+        await login(email, role, name, "password");
     };
 
     return (
