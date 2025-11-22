@@ -8,7 +8,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         const body = await request.json();
         const { name, email, role, departmentId, password } = body;
 
-        const data: any = { name, email, role, departmentId };
+        const data: any = { name, email, role };
+        if (departmentId !== undefined) {
+            data.departmentId = departmentId === "" ? null : departmentId;
+        }
         if (password) {
             data.password = await hashPassword(password);
         }

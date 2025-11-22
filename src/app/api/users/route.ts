@@ -4,13 +4,13 @@ import { hashPassword, getUserRoleFromRequest } from '@/lib/auth';
 
 export async function GET(request: Request) {
     try {
-        // Verify Admin
-        // const role = getUserRoleFromRequest(request as any);
-        // if (role !== 'ADMIN') {
-        //     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-        // }
+        const { searchParams } = new URL(request.url);
+        const role = searchParams.get('role');
+
+        const whereClause = role ? { role: role as any } : {};
 
         const users = await prisma.user.findMany({
+            where: whereClause,
             orderBy: { createdAt: 'desc' },
             include: {
                 department: true,

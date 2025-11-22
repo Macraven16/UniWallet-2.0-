@@ -1,35 +1,75 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MOCK_FEES, MOCK_STUDENTS } from "@/lib/mock-data";
-import { CreditCard, Smartphone, CheckCircle2, Loader2, Home } from "lucide-react";
+import { CreditCard, Smartphone, CheckCircle2, Loader2, Home, Download } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function PaymentPage() {
     const router = useRouter();
     const [step, setStep] = useState(1);
-    const [selectedFee, setSelectedFee] = useState(MOCK_FEES[0].id);
+    const [invoices, setInvoices] = useState<any[]>([]);
+    const [selectedInvoiceId, setSelectedInvoiceId] = useState<string>("");
     const [amount, setAmount] = useState("");
     const [method, setMethod] = useState<"momo" | "card">("momo");
     const [isLoading, setIsLoading] = useState(false);
+    const [isFetching, setIsFetching] = useState(true);
+
+    useEffect(() => {
+        fetchInvoices();
+    }, []);
+
+    const fetchInvoices = async () => {
+        try {
+            const res = await fetch("/api/student/invoices");
+            if (res.ok) {
+                const data = await res.json();
+                setInvoices(data);
+                if (data.length > 0) {
+                    setSelectedInvoiceId(data[0].id);
+                    // Pre-fill amount with remaining balance if possible, or just leave empty
+                }
+            }
+        } catch (error) {
+            console.error("Failed to fetch invoices", error);
+        } finally {
+            setIsFetching(false);
+        }
+    };
 
     const handlePayment = async () => {
         setIsLoading(true);
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        try {
+            const res = await fetch("/api/fees/payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    invoiceId: selectedInvoiceId,
+                    amount: amount,
+                    method: method // 'momo' or 'card'
+                })
+            });
 
-        // Update mock balance for prototype
-        if (MOCK_STUDENTS[0]) {
-            MOCK_STUDENTS[0].balance = Math.max(0, MOCK_STUDENTS[0].balance - Number(amount));
+            if (!res.ok) {
+                const error = await res.json();
+                throw new Error(error.error || "Payment failed");
+            }
+
+            setStep(3);
+        } catch (error) {
+            console.error("Payment error:", error);
+            alert("Payment failed. Please try again.");
+        } finally {
+            setIsLoading(false);
         }
-
-        setIsLoading(false);
-        setStep(3);
     };
 
-    const fee = MOCK_FEES.find((f) => f.id === selectedFee);
+    const selectedInvoice = invoices.find((inv) => inv.id === selectedInvoiceId);
+
+    if (isFetching) {
+        return <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
 
     return (
         <div className="space-y-6 max-w-xl mx-auto">
@@ -45,49 +85,56 @@ export default function PaymentPage() {
                             <CardTitle>Select Fee to Pay</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {MOCK_FEES.map((f) => (
-                                <div
-                                    key={f.id}
-                                    className={`flex items-center justify-between rounded-lg border p-4 cursor-pointer transition-colors ${selectedFee === f.id ? "border-primary bg-primary/5" : "hover:bg-accent"
-                                        }`}
-                                    onClick={() => setSelectedFee(f.id)}
-                                >
-                                    <div>
-                                        <p className="font-medium">{f.name}</p>
-                                        <p className="text-sm text-muted-foreground">Due: {f.dueDate}</p>
+                            {invoices.length === 0 ? (
+                                <p className="text-center text-muted-foreground py-4">No pending fees found.</p>
+                            ) : (
+                                invoices.map((inv) => (
+                                    <div
+                                        key={inv.id}
+                                        className={`flex items-center justify-between rounded-lg border p-4 cursor-pointer transition-colors ${selectedInvoiceId === inv.id ? "border-primary bg-primary/5" : "hover:bg-accent"
+                                            }`}
+                                        onClick={() => setSelectedInvoiceId(inv.id)}
+                                    >
+                                        <div>
+                                            <p className="font-medium">{inv.feeStructure.name}</p>
+                                            <p className="text-sm text-muted-foreground">Due: {new Date(inv.feeStructure.dueDate).toLocaleDateString()}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold">GHS {inv.feeStructure.amount.toLocaleString()}</p>
+                                            <p className="text-xs text-muted-foreground">Paid: GHS {inv.amountPaid.toLocaleString()}</p>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold">GHS {f.amount.toLocaleString()}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            )}
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Enter Amount</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="relative">
-                                <span className="absolute left-3 top-2.5 text-muted-foreground">GHS</span>
-                                <input
-                                    type="number"
-                                    placeholder="0.00"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    className="w-full rounded-md border border-input bg-background pl-12 py-2 text-lg font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                />
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-2">
-                                Minimum payment: GHS 50.00
-                            </p>
-                        </CardContent>
-                    </Card>
+                    {invoices.length > 0 && (
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Enter Amount</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-2.5 text-muted-foreground">GHS</span>
+                                    <input
+                                        type="number"
+                                        placeholder="0.00"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        className="w-full rounded-md border border-input bg-background pl-12 py-2 text-lg font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                    />
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-2">
+                                    Minimum payment: GHS 50.00
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     <button
                         onClick={() => setStep(2)}
-                        disabled={!amount || Number(amount) < 50}
+                        disabled={!amount || Number(amount) < 50 || !selectedInvoiceId}
                         className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
                     >
                         Continue to Payment
@@ -174,9 +221,13 @@ export default function PaymentPage() {
                         </p>
                     </div>
                     <div className="w-full max-w-xs space-y-3">
-                        <button className="w-full rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
+                        <Link
+                            href={`/student/invoices/${selectedInvoiceId}`}
+                            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+                        >
+                            <Download className="h-4 w-4" />
                             Download Receipt
-                        </button>
+                        </Link>
                         <Link
                             href="/student"
                             className="flex w-full items-center justify-center gap-2 rounded-lg border border-input bg-background px-4 py-3 text-sm font-semibold shadow-sm hover:bg-accent"

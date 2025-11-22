@@ -16,7 +16,7 @@ export default function TransactionsPage() {
 
     const fetchTransactions = async () => {
         try {
-            const res = await fetch("/api/transactions");
+            const res = await fetch("/api/admin/transactions");
             if (res.ok) {
                 const data = await res.json();
                 setTransactions(data);
@@ -155,7 +155,7 @@ export default function TransactionsPage() {
                                         </td>
                                         <td className="p-4 align-middle">
                                             <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent ${tx.type === 'TOPUP' ? 'bg-green-100 text-green-800' :
-                                                    tx.type === 'TUITION' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                                tx.type === 'TUITION' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                                                 }`}>
                                                 {tx.type}
                                             </span>
@@ -164,8 +164,8 @@ export default function TransactionsPage() {
                                         <td className="p-4 align-middle font-bold">GH₵ {tx.amount.toFixed(2)}</td>
                                         <td className="p-4 align-middle text-right">
                                             <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent ${tx.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                                                    tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                                                        'bg-red-100 text-red-800'
+                                                tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                                                    'bg-red-100 text-red-800'
                                                 }`}>
                                                 {tx.status}
                                             </span>

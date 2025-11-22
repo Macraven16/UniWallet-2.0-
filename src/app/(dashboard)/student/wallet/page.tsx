@@ -48,7 +48,7 @@ export default function WalletPage() {
             const token = localStorage.getItem("school_fintech_token");
             if (!token) return;
 
-            const res = await fetch("/api/wallet", {
+            const res = await fetch("/api/wallet/topup", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -59,7 +59,7 @@ export default function WalletPage() {
 
             if (res.ok) {
                 const data = await res.json();
-                setBalance(data.balance);
+                setBalance(data.wallet.balance);
                 setShowTopUp(false);
                 setTopUpAmount("");
                 alert("Top Up Successful!");

@@ -23,6 +23,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
         }
 
+        // 1. Create the Fee Structure
         const fee = await prisma.feeStructure.create({
             data: {
                 name,
@@ -33,7 +34,25 @@ export async function POST(request: Request) {
             },
         });
 
-        return NextResponse.json(fee);
+        // 2. Find all students in this school
+        const students = await prisma.student.findMany({
+            where: { schoolId },
+            select: { id: true }
+        });
+
+        // 3. Create Invoices for each student
+        if (students.length > 0) {
+            await prisma.invoice.createMany({
+                data: students.map(student => ({
+                    studentId: student.id,
+                    feeStructureId: fee.id,
+                    amountPaid: 0.0,
+                    status: 'PENDING',
+                }))
+            });
+        }
+
+        return NextResponse.json({ ...fee, invoicesCreated: students.length });
     } catch (error) {
         console.error('Create fee error:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

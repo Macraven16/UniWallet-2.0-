@@ -1,18 +1,35 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getUserIdFromRequest } from '@/lib/auth';
 
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const { studentId, amount, reference, method } = body;
-
-        if (!studentId || !amount || amount <= 0) {
-            return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+        const userId = getUserIdFromRequest(request as any);
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+
+        const body = await request.json();
+        const { amount, reference, method } = body;
+
+        if (!amount || amount <= 0) {
+            return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
+        }
+
+        const student = await prisma.student.findUnique({
+            where: { userId },
+            include: { wallet: true }
+        });
+
+        if (!student || !student.wallet) {
+            return NextResponse.json({ error: 'Wallet not found' }, { status: 404 });
+        }
+
+        const studentId = student.id;
 
         // Start a transaction to ensure data integrity
         const result = await prisma.$transaction(async (tx) => {
-            // 1. Get current wallet
+            // 1. Get current wallet (lock it if possible, but Prisma doesn't support explicit locking easily, transaction helps)
             const wallet = await tx.wallet.findUnique({
                 where: { studentId },
             });

@@ -1,120 +1,109 @@
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/auth";
 
 export async function POST(request: Request) {
     try {
         const body = await request.json();
-        const { studentId, feeStructureId, amount, method, reference } = body;
+        const { invoiceId, amount, method } = body;
 
-        if (!studentId || !feeStructureId || !amount || amount <= 0) {
-            return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+        if (!invoiceId || !amount || !method) {
+            return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        const result = await prisma.$transaction(async (tx) => {
-            // 1. Get Student and Wallet
-            const student = await tx.student.findUnique({
-                where: { id: studentId },
-                include: { wallet: true, user: true },
-            });
+        const cookieStore = await cookies();
+        const token = cookieStore.get('token')?.value;
 
-            if (!student || !student.wallet) {
-                throw new Error('Student or wallet not found');
-            }
+        if (!token) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
-            // 2. Get Fee Structure
-            const feeStructure = await tx.feeStructure.findUnique({
-                where: { id: feeStructureId },
-            });
+        const decoded = verifyToken(token);
+        if (!decoded || !decoded.userId) {
+            return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+        }
 
-            if (!feeStructure) {
-                throw new Error('Fee structure not found');
-            }
+        const student = await prisma.student.findUnique({
+            where: { userId: decoded.userId },
+            include: { wallet: true }
+        });
 
-            // 3. Check for Invoice or Create one
-            let invoice = await tx.invoice.findFirst({
-                where: { studentId, feeStructureId },
-            });
+        if (!student) {
+            return NextResponse.json({ error: "Student profile not found" }, { status: 404 });
+        }
 
-            if (!invoice) {
-                invoice = await tx.invoice.create({
-                    data: {
-                        studentId,
-                        feeStructureId,
-                        amountPaid: 0,
-                        status: 'PENDING',
-                    },
-                });
-            }
+        const invoice = await prisma.invoice.findUnique({
+            where: { id: invoiceId },
+            include: { feeStructure: true }
+        });
 
-            // 4. Calculate Payment Logic
-            const amountToPay = parseFloat(amount);
-            const remainingFee = feeStructure.amount - invoice.amountPaid;
+        if (!invoice) {
+            return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
+        }
 
-            let paymentForFee = amountToPay;
-            let paymentToWallet = 0;
+        // Calculate new amount paid
+        const newAmountPaid = invoice.amountPaid + parseFloat(amount);
+        const isFullyPaid = newAmountPaid >= invoice.feeStructure.amount;
+        const newStatus = isFullyPaid ? "PAID" : "PARTIALLY_PAID";
 
-            if (amountToPay > remainingFee) {
-                paymentForFee = remainingFee;
-                paymentToWallet = amountToPay - remainingFee;
-            }
-
-            // 5. Update Invoice
-            const updatedInvoice = await tx.invoice.update({
-                where: { id: invoice.id },
+        // Database transaction
+        const result = await prisma.$transaction(async (prisma) => {
+            // 1. Update Invoice
+            const updatedInvoice = await prisma.invoice.update({
+                where: { id: invoiceId },
                 data: {
-                    amountPaid: { increment: paymentForFee },
-                    status: (invoice.amountPaid + paymentForFee) >= feeStructure.amount ? 'PAID' : 'PARTIAL',
+                    amountPaid: newAmountPaid,
+                    status: newStatus,
                 },
             });
 
-            // 6. Create Transaction for Fee Payment
-            await tx.transaction.create({
-                data: {
-                    walletId: student.wallet.id,
-                    amount: paymentForFee,
-                    type: 'TUITION',
-                    status: 'COMPLETED',
-                    reference: reference || `FEE-${Date.now()}`,
-                    method: method || 'MOMO',
-                    description: `Payment for ${feeStructure.name}`,
-                    balanceBefore: student.wallet.balance,
-                    balanceAfter: student.wallet.balance, // Balance doesn't change for direct fee payment unless wallet is used
-                },
-            });
+            // 2. Create Transaction Record
+            // If method is WALLET, we would deduct balance.
+            // If method is MOMO/CARD, we just record it.
+            // For now, assuming MOMO/CARD doesn't affect wallet balance directly unless we implemented a "Topup & Pay" flow.
+            // But we still want it in the history.
 
-            // 7. Handle Overpayment (Add to Wallet)
-            if (paymentToWallet > 0) {
-                const balanceBefore = student.wallet.balance;
-                const balanceAfter = balanceBefore + paymentToWallet;
+            let balanceBefore = student.wallet?.balance || 0;
+            let balanceAfter = student.wallet?.balance || 0;
 
-                await tx.transaction.create({
+            if (method === 'WALLET') {
+                if (balanceBefore < parseFloat(amount)) {
+                    throw new Error("Insufficient wallet balance");
+                }
+                balanceAfter = balanceBefore - parseFloat(amount);
+
+                // Update wallet balance
+                if (student.wallet) {
+                    await prisma.wallet.update({
+                        where: { id: student.wallet.id },
+                        data: { balance: balanceAfter }
+                    });
+                }
+            }
+
+            if (student.wallet) {
+                await prisma.transaction.create({
                     data: {
                         walletId: student.wallet.id,
-                        amount: paymentToWallet,
-                        type: 'TOPUP',
-                        status: 'COMPLETED',
-                        reference: `OVERPAY-${Date.now()}`,
-                        method: 'WALLET', // Or SYSTEM
-                        description: `Overpayment for ${feeStructure.name} added to wallet`,
-                        balanceBefore,
-                        balanceAfter,
-                    },
-                });
-
-                await tx.wallet.update({
-                    where: { id: student.wallet.id },
-                    data: {
-                        balance: { increment: paymentToWallet },
+                        amount: parseFloat(amount),
+                        type: "TUITION",
+                        status: "COMPLETED",
+                        method: method.toUpperCase(), // MOMO, CARD, WALLET
+                        description: `Payment for ${invoice.feeStructure.name}`,
+                        balanceBefore: balanceBefore,
+                        balanceAfter: balanceAfter,
                     },
                 });
             }
 
-            return { invoice: updatedInvoice, overpayment: paymentToWallet };
+            return updatedInvoice;
         });
 
         return NextResponse.json(result);
+
     } catch (error: any) {
-        console.error('Fee payment error:', error);
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+        console.error("Payment processing error:", error);
+        return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
     }
 }
