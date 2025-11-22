@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+  STAFF
+  MASTER_ADMIN
+}
+
+enum TransactionType {
+  TUITION
+  TOPUP
+  MARKETPLACE
+  OTHER
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum PaymentMethod {
+  MOMO
+  CARD
+  BANK
+  WALLET
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  name         String
+  role         Role     @default(STUDENT)
+  departmentId String?
+  image        String?
+  phoneNumber  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  student       Student?
+  notifications Notification[]
+  auditLogs     AuditLog[]
+}
+
+model University {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  logo         String?
+  verified     Boolean  @default(false)
+  address      String?
+  contactEmail String?
+  contactPhone String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  students      Student[]
+  feeStructures FeeStructure[]
+  courses       Course[]
+}
+
+model Student {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  schoolId        String
+  studentIdNumber String   // School specific ID (e.g., GCTU-2023-001)
+  grade           String   // e.g., Level 100
+  campus          String?  // e.g., Main Campus
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school University @relation(fields: [schoolId], references: [id])
+  wallet Wallet?
+  invoices Invoice[]
+  budgets Budget[]
+  savings Savings[]
+}
+
+model Course {
+  id          String   @id @default(cuid())
+  schoolId    String
+  name        String
+  code        String
+  credits     Int
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school University @relation(fields: [schoolId], references: [id])
+}
+
+model Wallet {
+  id        String   @id @default(cuid())
+  studentId String   @unique
+  balance   Float    @default(0.0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+}
+
+model Transaction {
+  id            String            @id @default(cuid())
+  walletId      String
+  amount        Float
+  type          TransactionType
+  status        TransactionStatus @default(PENDING)
+  reference     String?           // External reference (e.g., MoMo ID)
+  method        PaymentMethod
+  description   String?
+  balanceBefore Float             @default(0.0)
+  balanceAfter  Float             @default(0.0)
+  date          DateTime          @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+}
+
+model FeeStructure {
+  id        String   @id @default(cuid())
+  schoolId  String
+  name      String   // e.g., Term 1 2025 Tuition
+  amount    Float
+  dueDate   DateTime
+  breakdown Json     // Array of { item: string, amount: number }
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  school   University @relation(fields: [schoolId], references: [id])
+  invoices Invoice[]
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  studentId      String
+  feeStructureId String
+  amountPaid     Float    @default(0.0)
+  status         String   // PENDING, PARTIAL, PAID
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  feeStructure FeeStructure @relation(fields: [feeStructureId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Budget {
+  id        String   @id @default(cuid())
+  studentId String
+  category  String   // e.g., Food, Transport
+  amount    Float
+  spent     Float    @default(0.0)
+  period    String   // e.g., Monthly, Weekly
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Savings {
+  id          String   @id @default(cuid())
+  studentId   String
+  goalName    String
+  targetAmount Float
+  currentAmount Float @default(0.0)
+  deadline    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}

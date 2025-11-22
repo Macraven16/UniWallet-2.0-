@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 
 const sidebarItems = [
     { icon: LayoutDashboard, label: "Dashboard", href: "/admin" },
-    { icon: Users, label: "Students", href: "/admin/students" },
+    { icon: Users, label: "Users", href: "/admin/users/students" },
     { icon: CreditCard, label: "Fees & Payments", href: "/admin/fees" },
     { icon: FileText, label: "Reports", href: "/admin/reports" },
     { icon: Settings, label: "Settings", href: "/admin/settings" },

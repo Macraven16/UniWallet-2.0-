@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 
 interface AuthContextType {
     user: User | null;
-    login: (email: string, role: User["role"], name?: string, password?: string) => Promise<boolean>;
+    login: (email: string, role: User["role"], name?: string, password?: string) => Promise<{ success: boolean; error?: string }>;
     logout: () => void;
     isLoading: boolean;
 }
@@ -20,56 +20,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
 
     useEffect(() => {
-        // Check local storage for persisted user
-        const storedUser = localStorage.getItem("school_fintech_user");
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
-        }
-        setIsLoading(false);
+        const checkAuth = async () => {
+            const token = localStorage.getItem("school_fintech_token");
+            if (token) {
+                try {
+                    const res = await fetch("/api/auth/me", {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        setUser(data.user);
+                    } else {
+                        localStorage.removeItem("school_fintech_token");
+                        setUser(null);
+                    }
+                } catch (error) {
+                    console.error("Auth check failed", error);
+                    localStorage.removeItem("school_fintech_token");
+                    setUser(null);
+                }
+            }
+            setIsLoading(false);
+        };
+        checkAuth();
     }, []);
 
     const login = async (email: string, role: User["role"], name?: string, password?: string) => {
         setIsLoading(true);
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        try {
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
 
-        // Admin Restriction Logic
-        if (role === "ADMIN") {
-            const ALLOWED_ADMIN_EMAIL = "admin@gctu.edu.gh";
-            const ALLOWED_ADMIN_PASSWORD = "password"; // In a real app, this would be hashed and in DB
-
-            if (email !== ALLOWED_ADMIN_EMAIL || password !== ALLOWED_ADMIN_PASSWORD) {
+            if (!res.ok) {
+                const errorData = await res.json();
                 setIsLoading(false);
-                return false;
+                return { success: false, error: errorData.error || "Login failed" };
             }
+
+            const data = await res.json();
+            setUser(data.user);
+            localStorage.setItem("school_fintech_token", data.token);
+
+            // Redirect based on role
+            if (data.user.role === "ADMIN" || data.user.role === "MASTER_ADMIN" || data.user.role === "STAFF") {
+                router.push("/admin");
+            } else {
+                router.push("/student");
+            }
+            setIsLoading(false);
+            return { success: true };
+        } catch (error) {
+            console.error("Login failed", error);
+            setIsLoading(false);
+            return { success: false, error: "Network error" };
         }
-
-        // Find mock user or create a temporary one
-        const foundUser = MOCK_USERS.find((u) => u.email === email && u.role === role);
-
-        const userToSet = foundUser || {
-            id: `usr_${Date.now()}`,
-            name: name || email.split("@")[0],
-            email,
-            role,
-        };
-
-        setUser(userToSet);
-        localStorage.setItem("school_fintech_user", JSON.stringify(userToSet));
-        setIsLoading(false);
-
-        // Redirect based on role
-        if (role === "ADMIN") {
-            router.push("/admin");
-        } else {
-            router.push("/student");
-        }
-        return true;
     };
 
     const logout = () => {
         setUser(null);
-        localStorage.removeItem("school_fintech_user");
+        localStorage.removeItem("school_fintech_token");
         router.push("/login");
     };
 

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MOCK_STUDENTS, MOCK_TRANSACTIONS } from "@/lib/mock-data";
 import { useAuth } from "@/lib/auth-context";
+import { RecentActivity } from "@/components/RecentActivity";
 import { ArrowRight, CreditCard, Wallet, PiggyBank, AlertCircle, X } from "lucide-react";
 import Link from "next/link";
 
@@ -211,32 +212,7 @@ export default function StudentDashboard() {
             </div>
 
             {/* Recent Transactions */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold">Recent Activity</h2>
-                    <Link href="/student/wallet" className="text-sm font-medium text-primary hover:underline">
-                        View All
-                    </Link>
-                </div>
-                <div className="rounded-xl border bg-card shadow-sm">
-                    <div className="divide-y">
-                        {recentTransactions.map((tx) => (
-                            <div key={tx.id} className="flex items-center justify-between p-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                                        <CreditCard className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-medium">{tx.type === "TUITION" ? "School Fees" : "Payment"}</p>
-                                        <p className="text-xs text-muted-foreground">{new Date(tx.date).toLocaleDateString()}</p>
-                                    </div>
-                                </div>
-                                <span className="text-sm font-bold">-GHS {tx.amount.toLocaleString()}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
+            <RecentActivity />
         </div>
     );
 }

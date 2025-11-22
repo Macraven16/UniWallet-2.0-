@@ -1,222 +1,188 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { MOCK_SCHOOLS } from "@/lib/mock-data";
-import { Save, School, Bell, Shield, CreditCard, UserPlus, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { User, Mail, Phone, Camera, Save, History } from "lucide-react";
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState("general");
-    const [newAdminEmail, setNewAdminEmail] = useState("");
+    const [profile, setProfile] = useState({
+        name: "",
+        email: "",
+        phoneNumber: "",
+        image: "",
+    });
+    const [activityLog, setActivityLog] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState("");
 
-    // Mock using the first school
-    const school = MOCK_SCHOOLS[0];
+    useEffect(() => {
+        fetchProfile();
+    }, []);
 
-    const handleSave = () => {
-        alert("Settings saved successfully!");
+    const fetchProfile = async () => {
+        try {
+            const res = await fetch("/api/users/profile");
+            if (res.ok) {
+                const data = await res.json();
+                setProfile({
+                    name: data.name || "",
+                    email: data.email || "",
+                    phoneNumber: data.phoneNumber || "",
+                    image: data.image || "",
+                });
+                setActivityLog(data.auditLogs || []);
+            }
+        } catch (error) {
+            console.error("Failed to fetch profile", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleAddAdmin = (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        alert(`Invitation sent to ${newAdminEmail}`);
-        setNewAdminEmail("");
+        setSaving(true);
+        setMessage("");
+
+        try {
+            const res = await fetch("/api/users/profile", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(profile),
+            });
+
+            if (res.ok) {
+                setMessage("Profile updated successfully!");
+                fetchProfile(); // Refresh logs
+            } else {
+                setMessage("Failed to update profile.");
+            }
+        } catch (error) {
+            console.error("Error updating profile", error);
+            setMessage("An error occurred.");
+        } finally {
+            setSaving(false);
+        }
     };
+
+    if (loading) return <div className="p-6">Loading...</div>;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-4xl">
             <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-                    <p className="text-muted-foreground">Manage school profile and system preferences.</p>
-                </div>
-                <button
-                    onClick={handleSave}
-                    className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
-                >
-                    <Save className="mr-2 h-4 w-4" />
-                    Save Changes
-                </button>
+                <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-[250px_1fr]">
-                <nav className="flex flex-col space-y-1">
-                    <button
-                        onClick={() => setActiveTab("general")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${activeTab === 'general' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                    >
-                        <School className="h-4 w-4" />
-                        General
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("payments")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${activeTab === 'payments' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                    >
-                        <CreditCard className="h-4 w-4" />
-                        Payments
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("notifications")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${activeTab === 'notifications' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                    >
-                        <Bell className="h-4 w-4" />
-                        Notifications
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("security")}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium ${activeTab === 'security' ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'}`}
-                    >
-                        <Shield className="h-4 w-4" />
-                        Security & Roles
-                    </button>
-                </nav>
+            <div className="grid gap-6 md:grid-cols-2">
+                {/* Profile Settings */}
+                <div className="rounded-xl border bg-card text-card-foreground shadow">
+                    <div className="p-6 border-b">
+                        <h3 className="font-semibold flex items-center gap-2">
+                            <User className="h-4 w-4" />
+                            Profile Information
+                        </h3>
+                    </div>
+                    <div className="p-6">
+                        <form onSubmit={handleSave} className="space-y-4">
+                            {message && (
+                                <div className={`p-3 text-sm rounded-md ${message.includes("success") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                                    {message}
+                                </div>
+                            )}
 
-                <div className="space-y-6">
-                    {activeTab === "general" && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>School Profile</CardTitle>
-                                <CardDescription>Update your school's public information.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid gap-2">
-                                    <label className="text-sm font-medium">School Name</label>
+                            <div className="flex justify-center mb-6">
+                                <div className="relative h-24 w-24 rounded-full bg-muted flex items-center justify-center overflow-hidden border-2 border-border">
+                                    {profile.image ? (
+                                        <img src={profile.image} alt="Profile" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <User className="h-12 w-12 text-muted-foreground" />
+                                    )}
+                                    <button type="button" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                        <Camera className="h-6 w-6 text-white" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Full Name</label>
+                                <div className="relative">
+                                    <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <input
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                        defaultValue={school.name}
+                                        type="text"
+                                        className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm"
+                                        value={profile.name}
+                                        onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                                     />
                                 </div>
-                                <div className="grid gap-2">
-                                    <label className="text-sm font-medium">Address</label>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Email Address</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                                     <input
-                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                        defaultValue={school.address}
+                                        type="email"
+                                        className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm"
+                                        value={profile.email}
+                                        onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                                     />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
-                                        <label className="text-sm font-medium">Contact Email</label>
-                                        <input
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                            defaultValue={school.contactEmail}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <label className="text-sm font-medium">Phone Number</label>
-                                        <input
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                            defaultValue={school.contactPhone}
-                                        />
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                            </div>
 
-                    {activeTab === "payments" && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Payment Configuration</CardTitle>
-                                <CardDescription>Manage how you receive payments.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-center justify-between rounded-lg border p-4">
-                                    <div className="space-y-0.5">
-                                        <label className="text-base font-medium">Accept Mobile Money</label>
-                                        <p className="text-sm text-muted-foreground">Allow students to pay via MTN, Vodafone, etc.</p>
-                                    </div>
-                                    <input type="checkbox" className="h-4 w-4" defaultChecked />
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Phone Number</label>
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                                    <input
+                                        type="tel"
+                                        className="w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm"
+                                        value={profile.phoneNumber}
+                                        onChange={(e) => setProfile({ ...profile, phoneNumber: e.target.value })}
+                                        placeholder="024 123 4567"
+                                    />
                                 </div>
-                                <div className="flex items-center justify-between rounded-lg border p-4">
-                                    <div className="space-y-0.5">
-                                        <label className="text-base font-medium">Accept Card Payments</label>
-                                        <p className="text-sm text-muted-foreground">Allow Visa and Mastercard payments.</p>
-                                    </div>
-                                    <input type="checkbox" className="h-4 w-4" defaultChecked />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                            </div>
 
-                    {activeTab === "notifications" && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Notification Preferences</CardTitle>
-                                <CardDescription>Configure automated alerts.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="flex items-center justify-between rounded-lg border p-4">
-                                    <div className="space-y-0.5">
-                                        <label className="text-base font-medium">Payment Receipts</label>
-                                        <p className="text-sm text-muted-foreground">Automatically email receipts to students.</p>
-                                    </div>
-                                    <input type="checkbox" className="h-4 w-4" defaultChecked />
-                                </div>
-                                <div className="flex items-center justify-between rounded-lg border p-4">
-                                    <div className="space-y-0.5">
-                                        <label className="text-base font-medium">Due Date Reminders</label>
-                                        <p className="text-sm text-muted-foreground">Send reminders 3 days before due date.</p>
-                                    </div>
-                                    <input type="checkbox" className="h-4 w-4" defaultChecked />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )}
+                            <button
+                                type="submit"
+                                disabled={saving}
+                                className="w-full inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+                            >
+                                <Save className="mr-2 h-4 w-4" />
+                                {saving ? "Saving..." : "Save Changes"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
 
-                    {activeTab === "security" && (
-                        <div className="space-y-6">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Admin Access</CardTitle>
-                                    <CardDescription>Manage administrators and permissions.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <form onSubmit={handleAddAdmin} className="flex gap-2">
-                                        <input
-                                            type="email"
-                                            placeholder="Enter email to invite admin"
-                                            className="flex-1 p-2 border rounded-md"
-                                            value={newAdminEmail}
-                                            onChange={(e) => setNewAdminEmail(e.target.value)}
-                                            required
-                                        />
-                                        <button type="submit" className="bg-primary text-primary-foreground px-4 py-2 rounded-md flex items-center gap-2">
-                                            <UserPlus className="h-4 w-4" /> Invite
-                                        </button>
-                                    </form>
-
-                                    <div className="mt-4 space-y-2">
-                                        <h4 className="text-sm font-medium">Current Admins</h4>
-                                        <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs">AD</div>
-                                                <div>
-                                                    <p className="text-sm font-medium">Admin User</p>
-                                                    <p className="text-xs text-muted-foreground">admin@edupay.com</p>
-                                                </div>
-                                            </div>
-                                            <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Super Admin</span>
+                {/* Recent Activity */}
+                <div className="rounded-xl border bg-card text-card-foreground shadow h-fit">
+                    <div className="p-6 border-b">
+                        <h3 className="font-semibold flex items-center gap-2">
+                            <History className="h-4 w-4" />
+                            Recent Activity
+                        </h3>
+                    </div>
+                    <div className="p-6">
+                        {activityLog.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center">No recent activity.</p>
+                        ) : (
+                            <div className="space-y-4">
+                                {activityLog.map((log) => (
+                                    <div key={log.id} className="flex gap-3 items-start">
+                                        <div className="h-2 w-2 mt-2 rounded-full bg-primary shrink-0" />
+                                        <div>
+                                            <p className="text-sm font-medium">{log.action}</p>
+                                            <p className="text-xs text-muted-foreground">{log.details}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                {new Date(log.createdAt).toLocaleString()}
+                                            </p>
                                         </div>
                                     </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>Security Settings</CardTitle>
-                                    <CardDescription>Configure password policies and 2FA.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    <div className="flex items-center justify-between rounded-lg border p-4">
-                                        <div className="space-y-0.5">
-                                            <label className="text-base font-medium">Two-Factor Authentication</label>
-                                            <p className="text-sm text-muted-foreground">Require 2FA for all admin accounts.</p>
-                                        </div>
-                                        <input type="checkbox" className="h-4 w-4" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </div>
-                    )}
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

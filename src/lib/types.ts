@@ -1,4 +1,4 @@
-export type Role = 'ADMIN' | 'STUDENT' | 'PARENT';
+export type Role = 'ADMIN' | 'STUDENT' | 'PARENT' | 'MASTER_ADMIN';
 
 export interface User {
     id: string;
@@ -6,6 +6,7 @@ export interface User {
     email: string;
     role: Role;
     schoolId?: string; // For students/parents
+    student?: any; // Ideally strictly typed, but 'any' for now to avoid circular deps or complex types
 }
 
 export interface School {

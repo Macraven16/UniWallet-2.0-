@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MOCK_TRANSACTIONS } from "@/lib/mock-data";
 import { Wallet, ArrowUpRight, ArrowDownLeft, QrCode, History, Filter, X, ScanLine } from "lucide-react";
@@ -12,23 +12,77 @@ export default function WalletPage() {
     const [filterType, setFilterType] = useState<"ALL" | "CREDIT" | "DEBIT">("ALL");
     const [topUpAmount, setTopUpAmount] = useState("");
 
-    // Mock Balance State (in a real app this comes from context/backend)
-    const [balance, setBalance] = useState(120.50);
+    const [balance, setBalance] = useState(0.00);
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleTopUp = () => {
-        if (!topUpAmount) return;
-        setBalance(prev => prev + Number(topUpAmount));
-        setShowTopUp(false);
-        setTopUpAmount("");
-        alert("Top Up Successful!");
+    const fetchWallet = async () => {
+        try {
+            const token = localStorage.getItem("school_fintech_token");
+            if (!token) return;
+
+            const res = await fetch("/api/wallet", {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setBalance(data.balance);
+                setTransactions(data.transactions);
+            }
+        } catch (error) {
+            console.error("Failed to fetch wallet", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const filteredTransactions = MOCK_TRANSACTIONS.filter(tx => {
+    useEffect(() => {
+        fetchWallet();
+    }, []);
+
+    const handleTopUp = async () => {
+        if (!topUpAmount) return;
+
+        try {
+            const token = localStorage.getItem("school_fintech_token");
+            if (!token) return;
+
+            const res = await fetch("/api/wallet", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ amount: topUpAmount }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setBalance(data.balance);
+                setShowTopUp(false);
+                setTopUpAmount("");
+                alert("Top Up Successful!");
+                fetchWallet(); // Refresh transactions
+            } else {
+                alert("Top Up Failed");
+            }
+        } catch (error) {
+            console.error("Top up error", error);
+            alert("An error occurred");
+        }
+    };
+
+    const filteredTransactions = transactions.filter(tx => {
         if (filterType === "ALL") return true;
-        if (filterType === "CREDIT") return tx.type === "WALLET_TOPUP";
-        if (filterType === "DEBIT") return tx.type !== "WALLET_TOPUP";
+        if (filterType === "CREDIT") return tx.type === "TOPUP"; // Match API enum
+        if (filterType === "DEBIT") return tx.type !== "TOPUP";
         return true;
     });
+
+    if (loading) {
+        return <div className="p-8 text-center">Loading wallet...</div>;
+    }
 
     return (
         <div className="space-y-6 relative">
@@ -194,18 +248,18 @@ export default function WalletPage() {
                         filteredTransactions.map((tx) => (
                             <div key={tx.id} className="flex items-center justify-between p-4">
                                 <div className="flex items-center gap-4">
-                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.type === 'WALLET_TOPUP' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                                    <div className={`h-10 w-10 rounded-full flex items-center justify-center ${tx.type === 'TOPUP' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
                                         }`}>
-                                        {tx.type === 'WALLET_TOPUP' ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
+                                        {tx.type === 'TOPUP' ? <ArrowDownLeft className="h-5 w-5" /> : <ArrowUpRight className="h-5 w-5" />}
                                     </div>
                                     <div>
                                         <p className="font-medium text-sm">{tx.type.replace('_', ' ')}</p>
-                                        <p className="text-xs text-muted-foreground">{new Date(tx.date).toLocaleDateString()} • {tx.reference}</p>
+                                        <p className="text-xs text-muted-foreground">{new Date(tx.date).toLocaleDateString()} • {tx.reference || tx.id.slice(0, 8)}</p>
                                     </div>
                                 </div>
-                                <span className={`font-bold text-sm ${tx.type === 'WALLET_TOPUP' ? 'text-green-600' : 'text-foreground'
+                                <span className={`font-bold text-sm ${tx.type === 'TOPUP' ? 'text-green-600' : 'text-foreground'
                                     }`}>
-                                    {tx.type === 'WALLET_TOPUP' ? '+' : '-'}GHS {tx.amount.toLocaleString()}
+                                    {tx.type === 'TOPUP' ? '+' : '-'}GHS {tx.amount.toLocaleString()}
                                 </span>
                             </div>
                         ))
