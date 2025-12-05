@@ -121,7 +121,8 @@ model FeeStructure {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   school    University @relation(fields: [schoolId], references: [id])
-  invoices  Invoice[]
+  invoices          Invoice[]
+  deletionRequests  DeletionRequest[]
 }
 
 model Invoice {
