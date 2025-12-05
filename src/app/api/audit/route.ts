@@ -5,8 +5,8 @@ import { getUserRoleFromRequest } from '@/lib/auth';
 export async function GET(request: Request) {
     try {
         const role = getUserRoleFromRequest(request as any);
-        // Only Admins and Master Admins can view logs
-        if (role !== 'ADMIN' && role !== 'MASTER_ADMIN') {
+        // Admins, Master Admins, and Staff can view logs
+        if (role !== 'ADMIN' && role !== 'MASTER_ADMIN' && role !== 'STAFF') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 

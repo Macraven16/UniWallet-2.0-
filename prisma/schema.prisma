@@ -34,6 +34,7 @@ model User {
   schoolId      String?
   school        University?    @relation(fields: [schoolId], references: [id])
   deletionRequests DeletionRequest[]
+  issueReports     IssueReport[]
 }
 
 model University {
@@ -206,19 +207,35 @@ enum PaymentMethod {
 }
 
 model DeletionRequest {
-  id        String                @id @default(cuid())
-  studentId String
-  staffId   String
-  reason    String
-  status    DeletionRequestStatus @default(PENDING)
-  createdAt DateTime              @default(now())
-  updatedAt DateTime              @updatedAt
-  student   Student               @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  staff     User                  @relation(fields: [staffId], references: [id])
+  id             String                @id @default(cuid())
+  studentId      String?
+  feeStructureId String?
+  resourceType   String                @default("STUDENT") // "STUDENT" or "FEE"
+  staffId        String
+  reason         String
+  status         DeletionRequestStatus @default(PENDING)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  student        Student?              @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  feeStructure   FeeStructure?         @relation(fields: [feeStructureId], references: [id], onDelete: SetNull)
+  staff          User                  @relation(fields: [staffId], references: [id])
 }
 
 enum DeletionRequestStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+model IssueReport {
+  id          String   @id @default(cuid())
+  type        String
+  description String
+  attachment  String?
+  priority    String
+  status      String
+  userId      String
+  role        String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id])
 }

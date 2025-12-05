@@ -20,6 +20,8 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import AuditLogViewer from "@/components/AuditLogViewer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HealthMonitor } from "@/components/admin/health-monitor";
+import { IssueReportsList } from "@/components/admin/issue-reports-list";
 
 function DashboardCard({
     title,
@@ -142,42 +144,44 @@ export default function AdminDashboard() {
                 </div>
             </div>
 
-            {/* QUICK ACTIONS SECTION */}
-            <div>
-                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-                <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-                    <Link href="/admin/users?tab=add" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
-                        <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
-                            <UserPlus className="h-6 w-6" />
-                        </div>
-                        <span className="font-medium text-sm">Add New User</span>
-                    </Link>
-                    <Link href="/admin/users" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
-                        <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
-                            <Users className="h-6 w-6" />
-                        </div>
-                        <span className="font-medium text-sm">Manage Users</span>
-                    </Link>
-                    <Link href="/admin/fees" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
-                        <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
-                            <DollarSign className="h-6 w-6" />
-                        </div>
-                        <span className="font-medium text-sm">Fees Management</span>
-                    </Link>
-                    <Link href="/admin/reports" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
-                        <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
-                            <FileText className="h-6 w-6" />
-                        </div>
-                        <span className="font-medium text-sm">Payments Summary</span>
-                    </Link>
-                    <Link href="/admin/schools/add" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
-                        <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 group-hover:scale-110 transition-transform">
-                            <School className="h-6 w-6" />
-                        </div>
-                        <span className="font-medium text-sm">Add School</span>
-                    </Link>
+            {/* QUICK ACTIONS SECTION - Hidden for Staff */}
+            {user?.role !== 'STAFF' && (
+                <div>
+                    <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+                    <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+                        <Link href="/admin/users?tab=add" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
+                            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:scale-110 transition-transform">
+                                <UserPlus className="h-6 w-6" />
+                            </div>
+                            <span className="font-medium text-sm">Add New User</span>
+                        </Link>
+                        <Link href="/admin/users" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
+                            <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 group-hover:scale-110 transition-transform">
+                                <Users className="h-6 w-6" />
+                            </div>
+                            <span className="font-medium text-sm">Manage Users</span>
+                        </Link>
+                        <Link href="/admin/fees" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
+                            <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 group-hover:scale-110 transition-transform">
+                                <DollarSign className="h-6 w-6" />
+                            </div>
+                            <span className="font-medium text-sm">Fees Management</span>
+                        </Link>
+                        <Link href="/admin/reports" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
+                            <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 group-hover:scale-110 transition-transform">
+                                <FileText className="h-6 w-6" />
+                            </div>
+                            <span className="font-medium text-sm">Payments Summary</span>
+                        </Link>
+                        <Link href="/admin/schools/add" className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border bg-card hover:bg-accent/50 transition-all hover:shadow-md group">
+                            <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 group-hover:scale-110 transition-transform">
+                                <School className="h-6 w-6" />
+                            </div>
+                            <span className="font-medium text-sm">Add School</span>
+                        </Link>
+                    </div>
                 </div>
-            </div>
+            )}
 
             <Tabs defaultValue="overview" className="space-y-4">
                 <TabsList>
@@ -185,6 +189,16 @@ export default function AdminDashboard() {
                     <TabsTrigger value="activity">Activity Logs</TabsTrigger>
                 </TabsList>
                 <TabsContent value="overview" className="space-y-4">
+                    {/* SYSTEM HEALTH & ISSUES - NEW MODULES */}
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7 mb-8">
+                        <div className="col-span-2">
+                            <HealthMonitor />
+                        </div>
+                        <div className="col-span-5">
+                            <IssueReportsList />
+                        </div>
+                    </div>
+
                     {/* TOP SECTION: Key Metrics */}
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                         <DashboardCard
@@ -319,7 +333,7 @@ export default function AdminDashboard() {
                     </div>
                 </TabsContent>
             </Tabs>
-        </div>
+        </div >
     );
 }
 

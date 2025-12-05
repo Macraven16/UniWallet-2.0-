@@ -10,6 +10,7 @@ export default function FeesPage() {
         amount: "",
         dueDate: "",
         schoolId: "",
+        applyToAll: false,
     });
     const [universities, setUniversities] = useState<any[]>([]);
     const [fees, setFees] = useState<any[]>([]);
@@ -67,7 +68,15 @@ export default function FeesPage() {
             try {
                 const res = await fetch(`/api/fees/${id}`, {
                     method: "DELETE",
+                    headers: { "Authorization": `Bearer ${localStorage.getItem("school_fintech_token")}` }
                 });
+
+                if (res.status === 202) {
+                    const data = await res.json();
+                    alert(data.message); // "Deletion request submitted..."
+                    return; // Do NOT remove from list
+                }
+
                 if (res.ok) {
                     setFees(fees.filter((f) => f.id !== id));
                 } else {
@@ -98,7 +107,7 @@ export default function FeesPage() {
 
             if (res.ok) {
                 setIsModalOpen(false);
-                setNewFee({ name: "", amount: "", dueDate: "", schoolId: "" });
+                setNewFee({ name: "", amount: "", dueDate: "", schoolId: "", applyToAll: false });
                 setEditingFee(null);
                 fetchFees();
             } else {
@@ -120,7 +129,7 @@ export default function FeesPage() {
                 <button
                     onClick={() => {
                         setEditingFee(null);
-                        setNewFee({ name: "", amount: "", dueDate: "", schoolId: "" });
+                        setNewFee({ name: "", amount: "", dueDate: "", schoolId: "", applyToAll: false });
                         setIsModalOpen(true);
                     }}
                     className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow hover:bg-primary/90"
@@ -171,10 +180,11 @@ export default function FeesPage() {
                             <div>
                                 <label className="block text-sm font-medium mb-1">University</label>
                                 <select
-                                    required
-                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    required={!newFee.applyToAll}
+                                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
                                     value={editingFee ? editingFee.schoolId : newFee.schoolId}
                                     onChange={(e) => editingFee ? setEditingFee({ ...editingFee, schoolId: e.target.value }) : setNewFee({ ...newFee, schoolId: e.target.value })}
+                                    disabled={!!editingFee || newFee.applyToAll}
                                 >
                                     <option value="">Select University</option>
                                     {universities.map((uni) => (
@@ -184,6 +194,29 @@ export default function FeesPage() {
                                     ))}
                                 </select>
                             </div>
+
+                            {!editingFee && (
+                                <div className="flex items-center space-x-2 pt-2">
+                                    <input
+                                        type="checkbox"
+                                        id="applyToAll"
+                                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                        checked={newFee.applyToAll || false}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setNewFee({
+                                                ...newFee,
+                                                applyToAll: checked,
+                                                schoolId: checked ? "ALL" : ""
+                                            });
+                                        }}
+                                    />
+                                    <label htmlFor="applyToAll" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Apply to All Schools
+                                    </label>
+                                </div>
+                            )}
+
                             <div className="flex justify-end gap-2 mt-6">
                                 <button
                                     type="button"

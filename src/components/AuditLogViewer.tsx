@@ -23,7 +23,12 @@ export default function AuditLogViewer() {
 
     const fetchLogs = async () => {
         try {
-            const res = await fetch("/api/audit");
+            const token = localStorage.getItem("school_fintech_token");
+            const res = await fetch("/api/audit", {
+                headers: {
+                    "Authorization": `Bearer ${token}`
+                }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setLogs(data);
@@ -53,7 +58,7 @@ export default function AuditLogViewer() {
                             </div>
                             <p className="text-xs text-muted-foreground">{log.details}</p>
                             <div className="text-xs text-muted-foreground">
-                                By: <span className="font-medium">{log.user.name}</span>
+                                By: <span className="font-medium">{log.user?.name || log.user?.email || "Unknown User"}</span>
                             </div>
                         </div>
                     ))

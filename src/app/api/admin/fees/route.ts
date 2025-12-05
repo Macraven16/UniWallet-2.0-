@@ -6,7 +6,7 @@ import { createAuditLog } from '@/lib/audit';
 export async function POST(request: any) {
     try {
         const role = getUserRoleFromRequest(request);
-        if (role !== 'ADMIN' && role !== 'MASTER_ADMIN') {
+        if (role !== 'ADMIN' && role !== 'MASTER_ADMIN' && role !== 'STAFF') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
@@ -15,7 +15,8 @@ export async function POST(request: any) {
 
         let finalSchoolId = schoolId;
 
-        if (role === 'ADMIN' && !finalSchoolId) {
+        // For Admin and Staff, if schoolId is missing, infer from their profile
+        if ((role === 'ADMIN' || role === 'STAFF') && !finalSchoolId) {
             const userId = getUserIdFromRequest(request);
             if (userId) {
                 const user = await prisma.user.findUnique({
@@ -32,7 +33,61 @@ export async function POST(request: any) {
             return NextResponse.json({ error: 'School ID is required' }, { status: 400 });
         }
 
-        // 1. Create the Fee Structure
+        // --- HANDLE "SEND TO ALL" ---
+        if (finalSchoolId === "ALL" && (role === "MASTER_ADMIN" || role === "ADMIN")) {
+            // Fetch ALL Universities
+            const schools = await prisma.university.findMany({
+                select: { id: true }
+            });
+
+            console.log(`[Fee Broadcast] Sending fee '${name}' to ${schools.length} schools...`);
+
+            let totalInvoices = 0;
+
+            // Loop and create for each
+            for (const school of schools) {
+                // Create Fee Structure
+                const fee = await prisma.feeStructure.create({
+                    data: {
+                        name,
+                        amount: parseFloat(amount),
+                        dueDate: new Date(dueDate),
+                        breakdown: breakdown || [],
+                        schoolId: school.id,
+                    },
+                });
+
+                // Fetch students
+                const students = await prisma.student.findMany({
+                    where: { schoolId: school.id },
+                    select: { id: true }
+                });
+
+                // Create invoices
+                if (students.length > 0) {
+                    await prisma.invoice.createMany({
+                        data: students.map(student => ({
+                            studentId: student.id,
+                            feeStructureId: fee.id,
+                            amountPaid: 0.0,
+                            status: 'PENDING',
+                        }))
+                    });
+                    totalInvoices += students.length;
+                }
+            }
+
+            // Log global action
+            const userId = getUserIdFromRequest(request);
+            if (userId) {
+                await createAuditLog(userId, 'CREATE_FEE_BROADCAST', `Broadcasted fee '${name}' to ${schools.length} schools`);
+            }
+
+            return NextResponse.json({ success: true, message: `Fee sent to ${schools.length} schools`, totalInvoices });
+        }
+        // -----------------------------
+
+        // 1. Create the Fee Structure (Single School)
         const fee = await prisma.feeStructure.create({
             data: {
                 name,
@@ -45,7 +100,7 @@ export async function POST(request: any) {
 
         // 2. Fetch all students in this school
         const students = await prisma.student.findMany({
-            where: { schoolId: schoolId },
+            where: { schoolId: finalSchoolId },
             select: { id: true }
         });
 
@@ -64,7 +119,7 @@ export async function POST(request: any) {
         // 4. Create Audit Log
         const userId = getUserIdFromRequest(request);
         if (userId) {
-            await createAuditLog(userId, 'CREATE_FEE', `Created fee structure: ${name} for school ${schoolId}`);
+            await createAuditLog(userId, 'CREATE_FEE', `Created fee structure: ${name} for school ${finalSchoolId}`);
         }
 
         return NextResponse.json({ ...fee, invoicesCreated: students.length });
@@ -77,14 +132,14 @@ export async function POST(request: any) {
 export async function GET(request: any) {
     try {
         const role = getUserRoleFromRequest(request);
-        if (role !== 'ADMIN' && role !== 'MASTER_ADMIN') {
+        if (role !== 'ADMIN' && role !== 'MASTER_ADMIN' && role !== 'STAFF') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
         let whereClause = {};
 
-        // If regular Admin, filter by their school
-        if (role === 'ADMIN') {
+        // If regular Admin or Staff, filter by their school
+        if (role === 'ADMIN' || role === 'STAFF') {
             const userId = getUserIdFromRequest(request);
 
             if (!userId) {

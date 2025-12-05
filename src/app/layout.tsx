@@ -5,7 +5,9 @@ import { AuthProvider } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { IssueReporter } from "@/components/issue-reporter";
 import { ThemeProvider } from "@/components/ThemeProvider";
+// ... imports removed
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,6 +36,7 @@ export default function RootLayout({
           <AuthProvider>
             <Header />
             {children}
+            {/* <IssueReporter /> */}
             <Footer />
           </AuthProvider>
         </ThemeProvider>
